@@ -1,7 +1,7 @@
 import argparse
-import re
 import sys
 
+from . import intent
 from .session import SearchSession
 
 
@@ -53,8 +53,9 @@ def print_main_results(session):
 
 
 FOLLOW_UP_HELP = (
-    'Follow-up commands: "more restaurants [N]", "more items [N]", '
-    '"sort by rating", "sort by distance", or press Enter to quit.'
+    "Follow-up commands: plain English is fine, e.g. \"show me a few more "
+    'places", "any more options?", "sort by rating", "back to closest '
+    'first" -- or press Enter to quit.'
 )
 
 
@@ -65,32 +66,40 @@ def follow_up_loop(session):
     print(f"\n{FOLLOW_UP_HELP}")
     while True:
         try:
-            command = input("> ").strip().lower()
+            command = input("> ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             break
 
-        if not command or command in ("quit", "exit", "done"):
+        if not command or command.lower() in ("quit", "exit", "done"):
             break
 
-        num_match = re.search(r"\d+", command)
-        n = int(num_match.group()) if num_match else None
+        try:
+            action, count = intent.classify_follow_up(command)
+        except RuntimeError as exc:
+            print(f"Error: {exc}")
+            continue
+        except Exception as exc:
+            print(f"Couldn't interpret that ({exc}); try rephrasing.")
+            continue
 
-        if "restaurant" in command or "place" in command:
-            session.restaurant_cap += n or 3
+        if action == "more_restaurants":
+            session.restaurant_cap += count or 3
             session.expand(target_qualifying=session.restaurant_cap)
             print_main_results(session)
-        elif "item" in command or "mention" in command or "menu" in command:
-            session.honorable_cap += n or 5
+        elif action == "more_items":
+            session.honorable_cap += count or 5
             if len(session.honorable) < session.honorable_cap and not session.exhausted:
                 session.expand(target_qualifying=session.restaurant_cap)
             print_main_results(session)
-        elif "rating" in command:
+        elif action == "sort_rating":
             session.sort_by = "rating"
             print_main_results(session)
-        elif "distance" in command or "proximity" in command or "closest" in command or "near" in command:
+        elif action == "sort_distance":
             session.sort_by = "distance"
             print_main_results(session)
+        elif action == "quit":
+            break
         else:
             print(f"Sorry, I didn't understand that. {FOLLOW_UP_HELP}")
 

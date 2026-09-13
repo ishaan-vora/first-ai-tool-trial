@@ -57,7 +57,8 @@ ingredients are fine). For example, `--query "pasta with shrimp"`:
    menu, one to read it — and the web search tool carries its own small
    per-search fee on top of token costs; check Anthropic's current
    pricing page for the exact rate. The early-stopping rule above is what
-   keeps this bounded.)
+   keeps this bounded. Each interactive follow-up also makes one small,
+   cheap Claude call to interpret your request.)
 4. Copy the example env file and fill in your keys:
    ```
    cp .env.example .env
@@ -90,14 +91,19 @@ Options:
 ### Follow-up commands
 
 After results print, if you're at an interactive terminal, you can type
-follow-up commands (reusing already-fetched data wherever possible, so
-these are usually free or cheap):
+follow-up requests in **plain English** — a small Claude call classifies
+your intent, then the action itself reuses already-fetched data wherever
+possible, so these are usually free or cheap. Examples that all work:
 
-- `more restaurants` / `more restaurants 5` — raise the restaurant cap and keep searching if needed
-- `more items` / `more items 10` — raise the "No Price Found" cap
-- `sort by rating` — re-sort current results by Yelp rating (no new API calls)
-- `sort by distance` — back to closest-first (no new API calls)
-- press Enter (or `quit`/`exit`) to end
+- "show me a few more places" / "more restaurants" / "5 more restaurants" — raise the restaurant cap and keep searching if needed
+- "any more options without prices?" / "more items" — raise the "No Price Found" cap
+- "sort by rating" / "rank these by how good they are" — re-sort current results by Yelp rating (no new search calls)
+- "back to closest first" / "sort by distance" — closest-first again (no new search calls)
+- press Enter (or say "quit"/"I'm done") to end
+
+Requests outside what the tool supports (e.g. "change the address to
+Boston") are recognized as out of scope and get a helpful message rather
+than being misinterpreted.
 
 ## Limitations (read before relying on this)
 

@@ -3,23 +3,7 @@
 import json
 import re
 
-import anthropic
-
-from . import config
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        if not config.ANTHROPIC_API_KEY:
-            raise RuntimeError(
-                "ANTHROPIC_API_KEY is not set. Copy .env.example to .env "
-                "and fill it in."
-            )
-        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    return _client
+from . import anthropic_client, config
 
 
 PROMPT_TEMPLATE = """A customer is looking for a dish matching this \
@@ -75,7 +59,7 @@ def find_matching_items(restaurant_name: str, menu_text: str, food_query: str) -
     if not menu_text.strip():
         return []
 
-    client = _get_client()
+    client = anthropic_client.get_client()
     prompt = PROMPT_TEMPLATE.format(
         food_query=food_query,
         restaurant_name=restaurant_name,

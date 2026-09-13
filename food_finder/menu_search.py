@@ -8,25 +8,9 @@ restaurant has no usable website of its own.
 
 import re
 
-import anthropic
-
-from . import config
+from . import anthropic_client, config
 
 URL_PATTERN = re.compile(r"https?://[^\s)\]}\"'<>]+")
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        if not config.ANTHROPIC_API_KEY:
-            raise RuntimeError(
-                "ANTHROPIC_API_KEY is not set. Copy .env.example to .env "
-                "and fill it in."
-            )
-        _client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    return _client
 
 
 SEARCH_PROMPT = """Search the web to find the best URL for the online menu \
@@ -47,7 +31,7 @@ answer of exactly: NONE"""
 
 def find_menu_url(restaurant_name: str, address: str) -> str:
     """Return a URL likely to show this restaurant's menu, or "" if none found."""
-    client = _get_client()
+    client = anthropic_client.get_client()
 
     response = client.messages.create(
         model=config.ANTHROPIC_MODEL,
