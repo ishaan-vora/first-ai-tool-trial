@@ -120,6 +120,8 @@ def main():
     )
     parser.add_argument(
         "--max-price",
+        "--budget",
+        dest="max_price",
         type=float,
         default=None,
         help="Only include menu items priced at or below this amount (default: no limit)",

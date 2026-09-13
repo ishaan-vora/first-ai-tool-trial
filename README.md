@@ -77,7 +77,7 @@ python main.py --address "1600 Amphitheatre Parkway, Mountain View, CA" \
 
 Options:
 - `--radius` — search radius in miles (Yelp caps this at ~24.85 miles)
-- `--max-price` — only include menu items priced at or below this amount (default: no limit). Items with a price above this are dropped entirely; items with **no price found at all** go to the "No Price Found" section instead of being dropped.
+- `--max-price` (alias: `--budget`) — only include menu items priced at or below this amount (default: no limit). Items with a price above this are dropped entirely; items with **no price found at all** go to the "No Price Found" section instead of being dropped.
 - `--restaurant-cap` — stop once this many restaurants have a qualifying item (default: 7)
 - `--honorable-cap` — max items shown in the "No Price Found" section (default: 5)
 - `--max-results` — max restaurants pulled from Yelp to search through before giving up (default: 100)
