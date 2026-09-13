@@ -2,17 +2,17 @@ import argparse
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from . import menu_fetcher, menu_matcher, website_finder, yelp_client
+from . import menu_fetcher, menu_matcher, menu_search, yelp_client
 
 
 def _process_restaurant(restaurant, food_query, verbose):
-    website = website_finder.find_website(restaurant.yelp_url)
-    if not website:
+    menu_url = menu_search.find_menu_url(restaurant.name, restaurant.address)
+    if not menu_url:
         if verbose:
-            print(f"  [skip] {restaurant.name}: no website found", file=sys.stderr)
+            print(f"  [skip] {restaurant.name}: no menu page found", file=sys.stderr)
         return []
 
-    menu_text = menu_fetcher.fetch_menu_text(website)
+    menu_text = menu_fetcher.fetch_menu_text(menu_url)
     if not menu_text:
         if verbose:
             print(f"  [skip] {restaurant.name}: no menu text found", file=sys.stderr)
@@ -31,7 +31,7 @@ def _process_restaurant(restaurant, food_query, verbose):
             "distance_miles": restaurant.distance_miles,
             "item_name": m["item_name"],
             "price": m["price"],
-            "source": website,
+            "source": menu_url,
         }
         for m in matches
     ]
