@@ -22,7 +22,19 @@ def _get_client():
     return _client
 
 
-PROMPT_TEMPLATE = """A customer is looking for this kind of food: "{food_query}"
+PROMPT_TEMPLATE = """A customer is looking for a dish matching this \
+description: "{food_query}"
+
+Treat every distinct food/ingredient component explicitly named in that \
+description as REQUIRED. A menu item only qualifies if its name or \
+description indicates it contains ALL of those required components -- \
+extra ingredients beyond what's required are fine. For example, if the \
+customer asked for "pasta with shrimp": a dish described as "pasta with \
+shrimp and mussels" qualifies (it has both required components, plus an \
+extra one), but "pasta with chicken" does not qualify (it's missing \
+shrimp), and "shrimp cocktail" does not qualify (it's missing pasta). \
+Reasonable synonyms count (e.g. "prawns" for "shrimp"), but do not \
+include an item that is missing any required component.
 
 Below is raw text scraped from the website of a restaurant called \
 "{restaurant_name}". It may include navigation clutter, descriptions, and \
@@ -33,13 +45,12 @@ prices, and may be incomplete or messy.
 ---
 
 Return ONLY a JSON array (no markdown fences, no commentary) of menu items \
-from this text that match what the customer is looking for. Allow \
-reasonable synonyms and variations of the dish, but do not include items \
-that are clearly a different food. Each element must look like:
+from this text that contain ALL required components per the rule above. \
+Each element must look like:
 {{"item_name": "<name as written on the menu>", "price": "<price as \
 written, or null if not shown>"}}
 
-If nothing matches, return []."""
+If nothing qualifies, return []."""
 
 
 def _parse_json_array(text: str) -> list:

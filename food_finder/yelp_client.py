@@ -20,6 +20,7 @@ class Restaurant:
     phone: str
     distance_miles: float
     price: Optional[str]
+    rating: Optional[float]
     categories: list
 
 
@@ -31,10 +32,15 @@ def search_restaurants(
     address: str,
     radius_miles: float,
     max_results: int = 150,
+    open_now: bool = True,
 ) -> list:
     """Return restaurants near `address` within `radius_miles`.
 
     Yelp caps radius at ~24.85 miles and results at 1000 total (50/page).
+    When `open_now` is True (the default), Yelp filters out restaurants
+    that are currently closed before results are even returned -- this is
+    the cheapest possible filter since it means we never spend a Claude
+    call checking a closed restaurant's menu.
     """
     if not config.YELP_API_KEY:
         raise RuntimeError(
@@ -60,6 +66,8 @@ def search_restaurants(
             "offset": offset,
             "sort_by": "distance",
         }
+        if open_now:
+            params["open_now"] = "true"
         resp = requests.get(
             YELP_SEARCH_URL,
             headers=headers,
@@ -91,6 +99,7 @@ def search_restaurants(
                         _meters_to_miles(b.get("distance", 0)), 2
                     ),
                     price=b.get("price"),
+                    rating=b.get("rating"),
                     categories=[
                         c.get("title") for c in b.get("categories", [])
                     ],
