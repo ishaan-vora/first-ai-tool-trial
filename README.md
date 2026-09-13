@@ -2,25 +2,31 @@
 
 Find restaurant menu items matching a description (e.g. "pasta with
 shrimp"), near an address, within a radius and budget — with distance,
-price, and Yelp price tier.
+price, and Yelp price tier. Just describe what you want in plain English;
+no flags to memorize.
 
 ## How it works
 
-1. **Yelp Fusion API** finds restaurants near your address within the
-   radius, sorted by distance (Yelp computes distance for us). Pass
-   `--open-now` to have Yelp also filter out restaurants that are
-   currently closed, before any Claude call is spent — off by default, so
+1. You type a plain-language request (or the tool prompts you for one).
+   **Claude** parses it into an address, radius, food description, budget,
+   and whether you only want currently-open restaurants — asking a
+   follow-up question if anything essential (address, radius, or food)
+   is missing, until it has enough to search.
+2. **Yelp Fusion API** finds restaurants near that address within the
+   radius, sorted by distance (Yelp computes distance for us). If you
+   asked for open-only, Yelp also filters out restaurants that are
+   currently closed, before any Claude call is spent on them — otherwise
    all restaurants in range are included regardless of open/closed status.
-2. For each restaurant, **Claude's web search tool** looks up the best URL
+3. For each restaurant, **Claude's web search tool** looks up the best URL
    for its menu — preferring the restaurant's own site, falling back to a
    delivery app (DoorDash/Uber Eats/Grubhub) listing if that's all that's
    findable.
-3. The tool fetches that page (or PDF) and extracts the text, following a
+4. The tool fetches that page (or PDF) and extracts the text, following a
    couple of linked menu pages on the same site if there are any.
-4. **Claude** reads the scraped menu text and pulls out any items that
+5. **Claude** reads the scraped menu text and pulls out any items that
    contain **all** the components you named (ingredient-level matching —
    see below), with price if the menu shows one.
-5. Matches are filtered by your budget, then results are capped and
+6. Matches are filtered by your budget, then results are capped and
    sorted, and printed to the terminal. You can then issue **follow-up
    commands** to expand or re-sort without starting over.
 
@@ -29,7 +35,7 @@ price, and Yelp price tier.
 Restaurants are checked in distance order, and the search **stops as soon
 as enough restaurants have a qualifying match** (default: 7) rather than
 checking every restaurant in the radius — this is the main lever for
-keeping Claude usage down on a big radius. Adding `--open-now` helps
+keeping Claude usage down on a big radius. Asking for open-only helps
 further (closed restaurants never even get a Claude call), but even
 without it, the stopping rule keeps typical runs to a small, bounded
 number of API calls regardless of how many restaurants are technically in
@@ -37,9 +43,9 @@ range.
 
 ### Ingredient-level matching
 
-Every distinct food/ingredient named in your `--query` is treated as
+Every distinct food/ingredient named in your request is treated as
 **required** — a menu item only matches if it contains all of them (extra
-ingredients are fine). For example, `--query "pasta with shrimp"`:
+ingredients are fine). For example, "pasta with shrimp":
 
 - ✅ "Pasta with Shrimp and Mussels" — has both required components, plus an extra one
 - ❌ "Pasta with Chicken" — missing shrimp
@@ -59,8 +65,9 @@ ingredients are fine). For example, `--query "pasta with shrimp"`:
    menu, one to read it — and the web search tool carries its own small
    per-search fee on top of token costs; check Anthropic's current
    pricing page for the exact rate. The early-stopping rule above is what
-   keeps this bounded. Each interactive follow-up also makes one small,
-   cheap Claude call to interpret your request.)
+   keeps this bounded. Parsing your initial request, any clarification
+   round, and each interactive follow-up also make one small, cheap
+   Claude call.)
 4. Copy the example env file and fill in your keys:
    ```
    cp .env.example .env
@@ -68,20 +75,41 @@ ingredients are fine). For example, `--query "pasta with shrimp"`:
 
 ## Usage
 
+Just describe what you want:
+
 ```
-python main.py --address "1600 Amphitheatre Parkway, Mountain View, CA" \
-  --radius 3 \
-  --query "pasta with shrimp" \
-  --max-price 23
+python main.py "pasta with shrimp near 1600 Amphitheatre Parkway, Mountain View, within 3 miles, under $23"
 ```
 
-Options:
-- `--radius` — search radius in miles (Yelp caps this at ~24.85 miles)
-- `--max-price` (alias: `--budget`) — only include menu items priced at or below this amount (default: no limit). Items with a price above this are dropped entirely; items with **no price found at all** go to the "No Price Found" section instead of being dropped.
+Quote it as one argument if it contains characters your shell might treat
+specially (`$`, `&`, etc. — the example above needs quotes for exactly
+this reason). If you leave out the address, radius, or food description,
+the tool will ask you for whatever's missing before searching:
+
+```
+$ python main.py "ramen near times square"
+I still need a search radius in miles. Could you tell me?
+> 2 miles
+Got it — searching for "ramen" near "times square" within 2.0 mi.
+```
+
+Or run it with no argument at all and it'll prompt you from scratch:
+
+```
+$ python main.py
+What are you looking for?
+```
+
+Budget and "only show open restaurants" are optional — just mention them
+in your request if you want them (e.g. "...under $23" or "...that are
+open right now"); if you don't mention a budget there's no price cap, and
+if you don't ask for open-only, closed restaurants are included too.
+
+Tuning flags (optional, for how the search behaves rather than what
+you're searching for):
 - `--restaurant-cap` — stop once this many restaurants have a qualifying item (default: 7)
 - `--honorable-cap` — max items shown in the "No Price Found" section (default: 5)
 - `--max-results` — max restaurants pulled from Yelp to search through before giving up (default: 100)
-- `--open-now` — only include restaurants that are currently open (default: off, includes all)
 - `--concurrency` — restaurants processed in parallel (default 5)
 - `--verbose` — print per-restaurant progress (menu page found? menu text found? matches?)
 - `--no-follow-up` — skip the interactive follow-up prompt after showing results (useful for scripting)
@@ -109,6 +137,11 @@ Boston") are recognized as out of scope and get a helpful message rather
 than being misinterpreted.
 
 ## Limitations (read before relying on this)
+
+Request parsing is also Claude-driven, so double-check the "Got it —
+searching for..." confirmation line it prints before results come back —
+if it misread your address, radius, food, or budget, it's easiest to
+rephrase and try again rather than correct it mid-run.
 
 Menu discovery is **best-effort**, not a guaranteed data source — there is
 no public API that returns structured menus for arbitrary restaurants. You

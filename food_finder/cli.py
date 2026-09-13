@@ -1,8 +1,10 @@
 import argparse
 import sys
 
-from . import intent
+from . import intent, request_parser
 from .session import SearchSession
+
+MAX_CLARIFICATION_ROUNDS = 5
 
 
 def _price_tier(restaurant):
@@ -104,27 +106,58 @@ def follow_up_loop(session):
             print(f"Sorry, I didn't understand that. {FOLLOW_UP_HELP}")
 
 
+def gather_request(initial_text):
+    """Repeatedly parse free text with Claude, asking for whatever required
+    field is still missing, until address/radius/food_query are all known."""
+    raw_text = initial_text.strip()
+    if not raw_text:
+        try:
+            raw_text = input("What are you looking for? ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(1)
+
+    for _ in range(MAX_CLARIFICATION_ROUNDS):
+        parsed = request_parser.parse_request(raw_text)
+        missing = request_parser.missing_required_fields(parsed)
+        if not missing:
+            return parsed
+
+        needed = " and ".join(
+            request_parser.FIELD_LABELS[f] for f in missing
+        )
+        print(f"\nI still need {needed}. Could you tell me?")
+        try:
+            clarification = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            sys.exit(1)
+        raw_text = f"{raw_text}\n{clarification}"
+
+    print(
+        "Error: couldn't get enough information after several tries.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Find restaurant menu items matching a description, near an "
-            "address, within a radius and budget."
+            "Find restaurant menu items matching a plain-language request, "
+            'e.g. "pasta with shrimp near 1600 Amphitheatre Parkway, '
+            'Mountain View, within 3 miles, under $23".'
         )
     )
-    parser.add_argument("--address", required=True, help="Address to search around")
     parser.add_argument(
-        "--radius", required=True, type=float, help="Search radius in miles"
-    )
-    parser.add_argument(
-        "--query", required=True, help="Description of the food you're looking for"
-    )
-    parser.add_argument(
-        "--max-price",
-        "--budget",
-        dest="max_price",
-        type=float,
-        default=None,
-        help="Only include menu items priced at or below this amount (default: no limit)",
+        "request",
+        nargs="*",
+        help=(
+            "Describe what you want in plain language: address, radius, "
+            "food, budget, and whether to only show open restaurants. "
+            "If omitted, you'll be prompted. Quote it as one argument if "
+            "it contains characters your shell might mangle."
+        ),
     )
     parser.add_argument(
         "--restaurant-cap",
@@ -145,11 +178,6 @@ def main():
         help="Max number of restaurants to pull from Yelp to search through (default: 100)",
     )
     parser.add_argument(
-        "--open-now",
-        action="store_true",
-        help="Only include restaurants that are currently open (default: include all)",
-    )
-    parser.add_argument(
         "--concurrency",
         type=int,
         default=5,
@@ -165,16 +193,33 @@ def main():
     )
     args = parser.parse_args()
 
+    initial_text = " ".join(args.request)
+
+    try:
+        parsed = gather_request(initial_text)
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    budget_note = f", budget ${parsed['max_price']:.2f}" if parsed["max_price"] is not None else ""
+    open_note = ", open now only" if parsed["open_now"] else ""
+    print(
+        f'Got it — searching for "{parsed["food_query"]}" near '
+        f'"{parsed["address"]}" within {parsed["radius_miles"]} mi'
+        f"{budget_note}{open_note}.",
+        file=sys.stderr,
+    )
+
     session = SearchSession(
-        address=args.address,
-        radius_miles=args.radius,
-        food_query=args.query,
-        max_price=args.max_price,
+        address=parsed["address"],
+        radius_miles=parsed["radius_miles"],
+        food_query=parsed["food_query"],
+        max_price=parsed["max_price"],
         max_results=args.max_results,
         concurrency=args.concurrency,
         restaurant_cap=args.restaurant_cap,
         honorable_cap=args.honorable_cap,
-        open_now=args.open_now,
+        open_now=parsed["open_now"],
         verbose=args.verbose,
     )
 
