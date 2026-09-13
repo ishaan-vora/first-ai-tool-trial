@@ -6,10 +6,11 @@ price, and Yelp price tier.
 
 ## How it works
 
-1. **Yelp Fusion API** finds currently-*open* restaurants near your
-   address within the radius, sorted by distance (Yelp computes distance
-   and filters closed restaurants for us, before any Claude call is
-   spent).
+1. **Yelp Fusion API** finds restaurants near your address within the
+   radius, sorted by distance (Yelp computes distance for us). Pass
+   `--open-now` to have Yelp also filter out restaurants that are
+   currently closed, before any Claude call is spent — off by default, so
+   all restaurants in range are included regardless of open/closed status.
 2. For each restaurant, **Claude's web search tool** looks up the best URL
    for its menu — preferring the restaurant's own site, falling back to a
    delivery app (DoorDash/Uber Eats/Grubhub) listing if that's all that's
@@ -28,10 +29,11 @@ price, and Yelp price tier.
 Restaurants are checked in distance order, and the search **stops as soon
 as enough restaurants have a qualifying match** (default: 7) rather than
 checking every restaurant in the radius — this is the main lever for
-keeping Claude usage down on a big radius. Combined with the open-now
-filter (closed restaurants never even get a Claude call), this keeps
-typical runs to a small, bounded number of API calls regardless of how
-many restaurants are technically in range.
+keeping Claude usage down on a big radius. Adding `--open-now` helps
+further (closed restaurants never even get a Claude call), but even
+without it, the stopping rule keeps typical runs to a small, bounded
+number of API calls regardless of how many restaurants are technically in
+range.
 
 ### Ingredient-level matching
 
@@ -78,7 +80,8 @@ Options:
 - `--max-price` — only include menu items priced at or below this amount (default: no limit). Items with a price above this are dropped entirely; items with **no price found at all** go to the "No Price Found" section instead of being dropped.
 - `--restaurant-cap` — stop once this many restaurants have a qualifying item (default: 7)
 - `--honorable-cap` — max items shown in the "No Price Found" section (default: 5)
-- `--max-results` — max open restaurants pulled from Yelp to search through before giving up (default: 100)
+- `--max-results` — max restaurants pulled from Yelp to search through before giving up (default: 100)
+- `--open-now` — only include restaurants that are currently open (default: off, includes all)
 - `--concurrency` — restaurants processed in parallel (default 5)
 - `--verbose` — print per-restaurant progress (menu page found? menu text found? matches?)
 - `--no-follow-up` — skip the interactive follow-up prompt after showing results (useful for scripting)

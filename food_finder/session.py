@@ -53,6 +53,7 @@ class SearchSession:
         concurrency=5,
         restaurant_cap=7,
         honorable_cap=5,
+        open_now=False,
         verbose=False,
     ):
         self.address = address
@@ -63,6 +64,7 @@ class SearchSession:
         self.concurrency = concurrency
         self.restaurant_cap = restaurant_cap
         self.honorable_cap = honorable_cap
+        self.open_now = open_now
         self.verbose = verbose
         self.sort_by = "distance"  # or "rating"
 
@@ -78,8 +80,9 @@ class SearchSession:
     def _load_restaurants(self):
         if self._restaurant_iter is not None:
             return
+        openness = "open " if self.open_now else ""
         print(
-            f'Searching for open restaurants within {self.radius_miles} mi '
+            f'Searching for {openness}restaurants within {self.radius_miles} mi '
             f'of "{self.address}"...',
             file=sys.stderr,
         )
@@ -87,9 +90,9 @@ class SearchSession:
             self.address,
             self.radius_miles,
             max_results=self.max_results,
-            open_now=True,
+            open_now=self.open_now,
         )
-        print(f"Found {len(restaurants)} open restaurant(s). Checking menus...", file=sys.stderr)
+        print(f"Found {len(restaurants)} {openness}restaurant(s). Checking menus...", file=sys.stderr)
         self._restaurant_iter = iter(restaurants)
 
     def _record(self, restaurant, matches):

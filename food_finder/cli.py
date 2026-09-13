@@ -140,7 +140,12 @@ def main():
         "--max-results",
         type=int,
         default=100,
-        help="Max number of open restaurants to pull from Yelp to search through (default: 100)",
+        help="Max number of restaurants to pull from Yelp to search through (default: 100)",
+    )
+    parser.add_argument(
+        "--open-now",
+        action="store_true",
+        help="Only include restaurants that are currently open (default: include all)",
     )
     parser.add_argument(
         "--concurrency",
@@ -167,6 +172,7 @@ def main():
         concurrency=args.concurrency,
         restaurant_cap=args.restaurant_cap,
         honorable_cap=args.honorable_cap,
+        open_now=args.open_now,
         verbose=args.verbose,
     )
 
